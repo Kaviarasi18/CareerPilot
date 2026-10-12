@@ -124,6 +124,8 @@ export const CareerPathPage: React.FC = () => {
   const primaryCareer = careers[0];
   const secondaryCareers = careers.slice(1);
   const activeCareer = selectedCareer || primaryCareer;
+  const formatMatchPercentage = (value: number | string | undefined) =>
+    `${String(value ?? '').replace(/%+$/, '')}%`;
 
   return (
     <div className="space-y-8">
@@ -175,7 +177,7 @@ export const CareerPathPage: React.FC = () => {
 
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <div className="text-3xl font-black text-emerald-600">{activeCareer.match_percentage}%</div>
+                <div className="text-3xl font-black text-emerald-600">{formatMatchPercentage(activeCareer.match_percentage)}</div>
                 <div className="text-[11px] font-semibold text-slate-400">Skill Match Score</div>
               </div>
               <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs">
@@ -240,7 +242,7 @@ export const CareerPathPage: React.FC = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-bold text-slate-900">{c.career_name}</h4>
-                  <span className="text-sm font-black text-emerald-600">{c.match_percentage}%</span>
+                  <span className="text-sm font-black text-emerald-600">{formatMatchPercentage(c.match_percentage)}</span>
                 </div>
                 <p className="text-xs text-slate-600 line-clamp-2 mb-3">{c.reasoning}</p>
                 <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">

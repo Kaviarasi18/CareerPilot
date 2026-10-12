@@ -23,7 +23,12 @@ export async function generateCareerRecommendations(params: CareerRecommenderPar
     if (response.ok) {
       const data = await response.json();
       if (data.careers && Array.isArray(data.careers) && data.careers.length > 0) {
-        return data.careers;
+        return data.careers.map((career: CareerRecommendation) => ({
+          ...career,
+          heuristic_score: career.heuristic_score ?? career.match_percentage,
+          constraint_fit: career.constraint_fit ?? 'Medium',
+          decision_rationale: career.decision_rationale ?? career.reasoning,
+        }));
       }
     }
   } catch (err) {
@@ -32,6 +37,37 @@ export async function generateCareerRecommendations(params: CareerRecommenderPar
 
   // Fallback Dynamic Career Generator strictly built around candidate's actual resume skills & assessment performance
   return fallbackCareerRecommender(params.skills, params.attempt, params.targetCareer);
+}
+
+function getConstraintFit(score: number): 'High' | 'Medium' | 'Low' {
+  if (score >= 75) return 'High';
+  if (score >= 50) return 'Medium';
+  return 'Low';
+}
+
+function buildHeuristicCareerScore(
+  candidateSkills: string[],
+  allSkills: string[],
+  assessmentScore: number,
+  targetCareer?: string
+): { heuristic_score: number; constraint_fit: 'High' | 'Medium' | 'Low'; decision_rationale: string } {
+  const normalizedAll = allSkills.map((skill) => skill.toLowerCase());
+  const requiredSkills = candidateSkills.map((skill) => skill.toLowerCase());
+
+  const matchedSkills = requiredSkills.filter((skill) => normalizedAll.some((item) => item.includes(skill) || skill.includes(item)));
+  const constraintCoverage = requiredSkills.length > 0 ? (matchedSkills.length / requiredSkills.length) * 100 : 0;
+  const performanceBoost = assessmentScore > 80 ? 12 : assessmentScore > 60 ? 6 : 2;
+  const targetBoost = targetCareer ? 5 : 0;
+
+  const heuristic_score = Math.min(99, Math.max(50, Math.round(constraintCoverage * 0.65 + performanceBoost + targetBoost)));
+  const constraint_fit = getConstraintFit(heuristic_score);
+
+  const decision_rationale =
+    requiredSkills.length > 0
+      ? `Heuristic score ${heuristic_score}/100 based on ${matchedSkills.length}/${requiredSkills.length} required skill matches and assessment performance ${assessmentScore}%.`
+      : `Heuristic score ${heuristic_score}/100 based on your broader skill portfolio and assessment performance.`;
+
+  return { heuristic_score, constraint_fit, decision_rationale };
 }
 
 function fallbackCareerRecommender(skills: SkillItem[], attempt?: QuizAttempt | null, targetCareer?: string): CareerRecommendation[] {
@@ -186,5 +222,20 @@ function fallbackCareerRecommender(skills: SkillItem[], attempt?: QuizAttempt | 
     is_primary: careers.length === 0,
   });
 
-  return careers;
+  const evaluatedCareers = careers.map((career) => {
+    const candidateSkills = [...new Set([...(career.strong_skills || []), ...(career.missing_skills || [])])];
+    const heuristic = buildHeuristicCareerScore(candidateSkills, skillNames, scorePct, targetCareer);
+    return {
+      ...career,
+      heuristic_score: heuristic.heuristic_score,
+      constraint_fit: heuristic.constraint_fit,
+      decision_rationale: heuristic.decision_rationale,
+      match_percentage: Math.max(career.match_percentage, heuristic.heuristic_score),
+    };
+  });
+
+  evaluatedCareers.sort((a, b) => (b.heuristic_score ?? 0) - (a.heuristic_score ?? 0));
+  evaluatedCareers[0].is_primary = true;
+
+  return evaluatedCareers;
 }

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getSkills, getSkillGaps, getLatestQuizAttempt, getLearningOutcomes, saveLearningOutcomes, toggleLearningOutcomeCompletion } from '../services/supabase/database';
-import { generateLearningOutcomes } from '../services/ai/learningOutcomeGenerator';
+import { generateLearningOutcomes, areOutcomesSkillSpecific } from '../services/ai/learningOutcomeGenerator';
 import { LearningOutcome, SkillGapItem, SkillItem } from '../types';
 
 export const LearningOutcomesPage: React.FC = () => {
@@ -52,7 +52,7 @@ export const LearningOutcomesPage: React.FC = () => {
         const latestAssessmentDate = latestAttempt?.completed_at ? Date.parse(latestAttempt.completed_at) : 0;
         const needsAssessmentRefresh = latestAssessmentDate > latestOutcomeDate;
 
-        if (storedOutcomes && storedOutcomes.length > 0 && !needsAssessmentRefresh) {
+        if (storedOutcomes && storedOutcomes.length > 0 && !needsAssessmentRefresh && areOutcomesSkillSpecific(storedOutcomes, sk)) {
           setOutcomes(sanitizeLearningOutcomes(storedOutcomes));
         } else {
           const fresh = await generateLearningOutcomes({
@@ -105,13 +105,12 @@ export const LearningOutcomesPage: React.FC = () => {
       'master modern javascript',
       'javascript (es6+)',
       'modern javascript',
-      'full stack developer',
     ];
 
     return items.filter((item) => {
       const objective = (item.objective || '').trim().toLowerCase();
-      const normalized = objective.replace(/[^a-z0-9\s+]/g, ' ').replace(/\s+/g, ' ').trim();
-      return !blockedPatterns.some((pattern) => normalized.includes(pattern));
+      const normalizedObjective = objective.replace(/[^a-z0-9\s+]/g, ' ').replace(/\s+/g, ' ').trim();
+      return !blockedPatterns.some((pattern) => normalizedObjective.includes(pattern));
     });
   };
 

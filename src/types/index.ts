@@ -146,6 +146,9 @@ export interface CareerRecommendation {
   is_primary?: boolean;
   market_demand?: 'Very High' | 'High' | 'Moderate';
   avg_salary?: string;
+  heuristic_score?: number;
+  constraint_fit?: 'High' | 'Medium' | 'Low';
+  decision_rationale?: string;
   created_at?: string;
 }
 

@@ -18,7 +18,7 @@ export async function generateLearningOutcomes(params: GenerateLearningOutcomesP
     if (response.ok) {
       const data = await response.json();
       if (data.outcomes && Array.isArray(data.outcomes) && data.outcomes.length > 0) {
-        return data.outcomes;
+        return ensureDistinctSkillOutcomes(data.outcomes, params.gaps, params.targetCareerName || params.career?.career_name || 'Software Engineering Pathway', params.skills);
       }
     }
   } catch (err) {
@@ -33,35 +33,81 @@ export async function generateLearningOutcomes(params: GenerateLearningOutcomesP
   );
 }
 
+export function areOutcomesSkillSpecific(outcomes: LearningOutcome[], skills: SkillItem[]): boolean {
+  const requiredSkills = skills.map((skill) => skill.skill_name.trim().toLowerCase()).filter(Boolean).slice(0, 5);
+  if (requiredSkills.length === 0 || outcomes.length < requiredSkills.length) return false;
+
+  const objectives = outcomes
+    .map((outcome) => (outcome.objective || '').trim().toLowerCase())
+    .filter(Boolean);
+  const uniqueObjectives = new Set(objectives);
+  return uniqueObjectives.size >= requiredSkills.length && requiredSkills.every((skill) => objectives.some((objective) => objective.includes(skill)));
+}
+
+function ensureDistinctSkillOutcomes(
+  outcomes: LearningOutcome[],
+  gaps: SkillGapItem[],
+  careerName: string,
+  skills?: SkillItem[]
+): LearningOutcome[] {
+  const resumeSkills = (skills || []).filter((skill) => skill.skill_name?.trim()).slice(0, 5);
+  if (resumeSkills.length === 0) return outcomes;
+
+  const usedSkills = new Set<string>();
+  const usedObjectives = new Set<string>();
+  return resumeSkills.map((skill, index) => {
+    const skillName = skill.skill_name.trim();
+    const normalizedSkill = skillName.toLowerCase();
+    const matchingOutcome = outcomes.find((outcome) => {
+      const objective = (outcome.objective || '').trim().toLowerCase();
+      return objective.includes(normalizedSkill) && !usedSkills.has(normalizedSkill) && !usedObjectives.has(objective);
+    });
+
+    if (matchingOutcome) {
+      usedSkills.add(normalizedSkill);
+      usedObjectives.add((matchingOutcome.objective || '').trim().toLowerCase());
+      return { ...matchingOutcome, id: matchingOutcome.id || `lo_skill_${index + 1}` };
+    }
+
+    const fallback = buildSkillOutcome(skill, index, gaps, careerName);
+    usedSkills.add(normalizedSkill);
+    usedObjectives.add(fallback.objective.toLowerCase());
+    return fallback;
+  });
+}
+
+function buildSkillOutcome(skill: SkillItem, index: number, gaps: SkillGapItem[], careerName: string): LearningOutcome {
+  const skillName = skill.skill_name.trim();
+  const relatedGap = gaps.find((gap) => gap.skill_name.toLowerCase() === skillName.toLowerCase());
+  const targetLevel = relatedGap?.target_level || 'Advanced';
+  const objectiveTemplates = [
+    `By the end of this module, you will be able to design and validate a production-ready solution using ${skillName}.`,
+    `By the end of this module, you will be able to troubleshoot and improve a real-world system built with ${skillName}.`,
+    `By the end of this module, you will be able to integrate ${skillName} into a complete portfolio project with measurable results.`,
+    `By the end of this module, you will be able to evaluate architectural trade-offs and choose an effective approach with ${skillName}.`,
+    `By the end of this module, you will be able to deliver a tested, documented feature that demonstrates practical ${skillName} expertise.`,
+  ];
+
+  return {
+    id: `lo_skill_${index + 1}_${Date.now()}`,
+    career_name: careerName,
+    objective: objectiveTemplates[index % objectiveTemplates.length],
+    topics: [`${skillName} Fundamentals`, `${skillName} Applied Patterns`, `${skillName} Testing`, `${skillName} Performance`],
+    expected_skill_level: targetLevel,
+    practical_task: `Build and validate a focused deliverable using ${skillName}, documenting the design decisions and test results.`,
+    project_idea: `${skillName} Portfolio Implementation`,
+    expected_outcome: `A working ${skillName} deliverable with documented tests and measurable verification criteria.`,
+    is_completed: false,
+  };
+}
+
 function fallbackLearningOutcomeGenerator(gaps: SkillGapItem[], careerName: string, skills?: SkillItem[]): LearningOutcome[] {
   // Use resume skills as the source for learning outcomes
   const resumeSkills = skills || [];
   
   if (resumeSkills.length > 0) {
     // Generate learning outcomes from resume skills
-    return resumeSkills.slice(0, 5).map((skill, idx) => {
-      const relatedGap = gaps.find(g => g.skill_name.toLowerCase() === skill.skill_name.toLowerCase());
-      const currentLevel = relatedGap?.current_level || skill.proficiency || 'Intermediate';
-      const targetLevel = relatedGap?.target_level || 'Advanced';
-      
-      return {
-        id: `lo_skill_${idx + 1}_${Date.now()}`,
-        career_name: careerName,
-        objective: `By the end of this module, you will be able to apply advanced ${skill.skill_name} techniques to build production-grade applications, elevating your proficiency from ${currentLevel} to ${targetLevel}.`,
-        topics: [
-          `Advanced ${skill.skill_name} Patterns & Best Practices`,
-          `Real-World ${skill.skill_name} Implementation Scenarios`,
-          `Performance Optimization in ${skill.skill_name}`,
-          `Testing & Quality Assurance for ${skill.skill_name}`,
-          `Integration with Modern Development Workflows`,
-        ],
-        expected_skill_level: targetLevel,
-        practical_task: `Build a complete feature using ${skill.skill_name} that demonstrates mastery of core concepts and best practices.`,
-        project_idea: `Production-Ready ${skill.skill_name} Application with Comprehensive Testing`,
-        expected_outcome: `Demonstrated ability to architect and implement robust solutions using ${skill.skill_name} with measurable performance improvements.`,
-        is_completed: false,
-      };
-    });
+    return resumeSkills.slice(0, 5).map((skill, idx) => buildSkillOutcome(skill, idx, gaps, careerName));
   }
   
   // Fallback to gaps if no skills available

@@ -500,7 +500,7 @@ Return pure JSON:
     try {
       const careerTitle = targetCareerName || career?.career_name || 'Software Engineer';
       const prompt = `You are CareerPilotAI's Curriculum & Learning Outcome Architect.
-Generate 5 personalized, highly measurable learning outcomes for the role "${careerTitle}".
+Generate one personalized, highly measurable learning outcome for each of the candidate's resume skills, up to 5 skills, for the role "${careerTitle}".
 
 CRITICAL REQUIREMENT - OBJECTIVES MUST COME FROM RESUME SKILLS:
 The learning outcome objectives MUST be derived from the candidate's actual resume skills.
@@ -512,6 +512,8 @@ Diagnosed Skill Gaps (for prioritization): ${JSON.stringify(gaps || [])}
 
 RULES:
 - Every learning outcome objective MUST be measurable and directly reference a skill from the resume (e.g., "By the end of this module, you will be able to build and deploy a REST API using Python and Flask from your resume skills...").
+- Create exactly one outcome per selected resume skill. Never repeat the same skill, objective, topic focus, or project.
+- Select the most relevant skills from the supplied resume list and name the specific skill in the objective, topics, practical task, project idea, and expected outcome.
 - Include 4-5 topics, expected skill level, practical task, project idea, and tangible expected outcome.
 - Ensure tasks and project ideas directly use the candidate's resume skills.
 - If gaps exist, prioritize learning outcomes that address those gaps using the resume skills as foundation.
@@ -522,7 +524,7 @@ Return pure JSON:
     {
       "id": "lo_1",
       "career_name": "${careerTitle}",
-      "objective": "By the end of this module, you will be able to [enhance/apply/master] [specific resume skill]...",
+      "objective": "By the end of this module, you will be able to [specific measurable result using one unique resume skill]...",
       "topics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4"],
       "expected_skill_level": "Intermediate",
       "practical_task": "Concrete task using [resume skill]",
