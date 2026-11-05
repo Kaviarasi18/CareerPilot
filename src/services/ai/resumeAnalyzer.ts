@@ -14,6 +14,30 @@ export interface AnalyzeResumeOptions {
   fileName?: string;
 }
 
+function normalizeConfidence(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.min(1, Math.max(0, value));
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    const confidenceLevels: Record<string, number> = {
+      'very high': 0.98,
+      high: 0.9,
+      medium: 0.75,
+      moderate: 0.75,
+      low: 0.5,
+      'very low': 0.25,
+    };
+    if (normalized in confidenceLevels) return confidenceLevels[normalized];
+
+    const parsed = Number(normalized);
+    if (Number.isFinite(parsed)) return Math.min(1, Math.max(0, parsed));
+  }
+
+  return 0.95;
+}
+
 // Validator to ensure an item is a real technical/professional skill, not noise/address/phone
 export function isValidSkillName(name: string): boolean {
   if (!name || typeof name !== 'string') return false;
@@ -72,7 +96,7 @@ export async function analyzeResume(
             skill_name: s.skill_name.trim(),
             category: s.category || 'Core Engineering',
             proficiency: s.proficiency || 'Intermediate',
-            confidence: s.confidence || 0.95,
+            confidence: normalizeConfidence(s.confidence),
             evidence: s.evidence || 'Directly identified in resume',
             source: 'resume' as const,
           }));
@@ -104,7 +128,13 @@ export async function analyzeManualSkills(skillsInput: string[] | string): Promi
     if (response.ok) {
       const data = await response.json();
       if (data.skills && Array.isArray(data.skills) && data.skills.length > 0) {
-        return data;
+        return {
+          ...data,
+          skills: data.skills.map((skill: any) => ({
+            ...skill,
+            confidence: normalizeConfidence(skill.confidence),
+          })),
+        };
       }
     }
   } catch (err) {
