@@ -20,6 +20,7 @@ import { SkillLearningPage } from './pages/SkillLearningPage';
 import { TodaysTechPage } from './pages/TodaysTechPage';
 import { PremiumPage } from './pages/PremiumPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { InstallAppPrompt } from './components/common/InstallAppPrompt';
 
 export function App() {
   return (
@@ -56,6 +57,7 @@ export function App() {
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <InstallAppPrompt />
       </Router>
     </AuthProvider>
   );

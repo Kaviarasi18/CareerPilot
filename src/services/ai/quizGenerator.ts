@@ -1,4 +1,5 @@
 import { QuizQuestion, SkillItem, Quiz } from '../../types';
+import { orderSkillsByPrerequisites } from '../../utils/breadthFirstSearch';
 
 export interface GenerateQuizParams {
   skills: SkillItem[] | string[];
@@ -8,11 +9,17 @@ export interface GenerateQuizParams {
 }
 
 export async function generateSkillQuiz(params: GenerateQuizParams): Promise<QuizQuestion[]> {
+  const orderedSkills = orderSkillsByPrerequisites(params.skills);
+  const orderedCustomSkillNames = params.customSkillNames
+    ? orderSkillsByPrerequisites(params.customSkillNames)
+    : undefined;
+  const orderedParams = { ...params, skills: orderedSkills, customSkillNames: orderedCustomSkillNames };
+
   try {
     const response = await fetch('/api/ai/generate-quiz', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
+      body: JSON.stringify(orderedParams),
     });
 
     if (response.ok) {
@@ -26,7 +33,7 @@ export async function generateSkillQuiz(params: GenerateQuizParams): Promise<Qui
   }
 
   // Fallback Dynamic Quiz Engine matching user's actual skills
-  return fallbackQuizGenerator(params.skills);
+  return fallbackQuizGenerator(orderedSkills);
 }
 
 export async function generate15QuestionQuiz(
@@ -34,10 +41,14 @@ export async function generate15QuestionQuiz(
   topicFocus?: string,
   customSkillNames?: string[]
 ): Promise<Quiz> {
-  const questions = await generateSkillQuiz({ skills, topicFocus, customSkillNames });
-  const skillNames = Array.isArray(customSkillNames) && customSkillNames.length > 0
-    ? customSkillNames
-    : skills.map((s) => (typeof s === 'string' ? s : s.skill_name));
+  const orderedSkills = orderSkillsByPrerequisites(skills);
+  const orderedCustomSkillNames = customSkillNames
+    ? orderSkillsByPrerequisites(customSkillNames)
+    : undefined;
+  const questions = await generateSkillQuiz({ skills: orderedSkills, topicFocus, customSkillNames: orderedCustomSkillNames });
+  const skillNames = Array.isArray(orderedCustomSkillNames) && orderedCustomSkillNames.length > 0
+    ? orderedCustomSkillNames
+    : orderedSkills.map((s) => (typeof s === 'string' ? s : s.skill_name));
 
   return {
     id: 'quiz_' + Date.now(),

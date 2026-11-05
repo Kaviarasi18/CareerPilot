@@ -216,6 +216,8 @@ def generate_quiz(payload: dict[str, Any]) -> dict[str, Any]:
     skill_list = ", ".join(custom or [s if isinstance(s, str) else s.get("skill_name", "") for s in skills])
     skill_list = skill_list or "Python, JavaScript, React, Node.js, SQL, Docker"
     prompt = f"""Generate exactly 15 tailored multiple-choice technical questions for these skills: {skill_list}.
+The skills are supplied in Breadth-First Search prerequisite order, with foundational skills before dependent skills.
+Distribute questions in that order where feasible, while keeping each question focused on its named skill.
 Use exactly 5 Easy, 6 Medium, and 4 Hard questions. Each question has four options, correct_answer,
 explanation, skill, and difficulty. Return pure JSON: {{\"questions\": [...]}}.
 Assessment focus: {payload.get('topicFocus', '')}"""

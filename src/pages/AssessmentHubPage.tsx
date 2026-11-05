@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { getSkills, getLatestQuizAttempt, saveQuiz } from '../services/supabase/database';
 import { generate15QuestionQuiz } from '../services/ai/quizGenerator';
+import { orderSkillsByPrerequisites } from '../utils/breadthFirstSearch';
 import { SkillItem, QuizAttempt } from '../types';
 
 export const AssessmentHubPage: React.FC = () => {
@@ -59,6 +60,8 @@ export const AssessmentHubPage: React.FC = () => {
       prev.includes(skillName) ? prev.filter((s) => s !== skillName) : [...prev, skillName]
     );
   };
+
+  const orderedSelectedSkillNames = orderSkillsByPrerequisites(selectedSkillNames);
 
   const selectAllSkills = () => {
     setSelectedSkillNames(skills.map((s) => s.skill_name));
@@ -216,6 +219,17 @@ export const AssessmentHubPage: React.FC = () => {
                     Upload your resume on the Resume & Skills page
                   </Link>{' '}
                   to generate tailored questions.
+                </div>
+              )}
+              {orderedSelectedSkillNames.length > 0 && (
+                <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3.5 py-3">
+                  <p className="text-[11px] font-bold text-indigo-900">
+                    BFS question-planning order
+                  </p>
+                  <p className="mt-1 text-[11px] text-indigo-800">
+                    Breadth-First Search orders known skill prerequisites from foundational to advanced; skills without a mapped relationship stay in their selected order:
+                    {' '}{orderedSelectedSkillNames.join(' → ')}.
+                  </p>
                 </div>
               )}
             </div>
